@@ -2,12 +2,13 @@
 
 // Firebaseの設定
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
+    authDomain: "hozon-4794d.firebaseapp.com",
+    projectId: "hozon-4794d",
+    storageBucket: "hozon-4794d.appspot.com",
+    messagingSenderId: "363639067783",
+    appId: "1:363639067783:web:89c021b8c297cf60e2d422",
+    measurementId: "G-NKKQJM5VQY"
 };
 
 // Firebaseの初期化
