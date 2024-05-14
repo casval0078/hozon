@@ -1,18 +1,10 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Upload Board</title>
-
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
-  import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 </head>
-
 <body>
     <input type="file" id="fileInput">
     <input type="text" id="textInput" placeholder="Enter description">
@@ -20,39 +12,39 @@
     <div id="postsContainer"></div>
 
     <script type="module">
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
-    authDomain: "hozon-4794d.firebaseapp.com",
-    projectId: "hozon-4794d",
-    storageBucket: "hozon-4794d.appspot.com",
-    messagingSenderId: "363639067783",
-    appId: "1:363639067783:web:89c021b8c297cf60e2d422",
-    measurementId: "G-NKKQJM5VQY"
-  };
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // Initialize Firebase
-  const app = firebase.initializeApp(firebaseConfig);
-  const storage = firebase.storage();
-  const db = firebase.firestore();
+        const firebaseConfig = {
+            apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
+            authDomain: "hozon-4794d.firebaseapp.com",
+            projectId: "hozon-4794d",
+            storageBucket: "hozon-4794d.appspot.com",
+            messagingSenderId: "363639067783",
+            appId: "1:363639067783:web:89c021b8c297cf60e2d422",
+            measurementId: "G-NKKQJM5VQY"
+        };
 
-// Attach event listener to button
-  document.getElementById('uploadButton').addEventListener('click', async () => {
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
+        const db = getFirestore(app);
+
+        document.getElementById('uploadButton').addEventListener('click', async () => {
             const fileInput = document.getElementById('fileInput');
             const textInput = document.getElementById('textInput');
             const file = fileInput.files[0];
             const description = textInput.value;
-            const storageRef = storage.ref('uploads/' + file.name);
+            const storageRef = ref(storage, 'uploads/' + file.name);
             
             try {
-                const snapshot = await storageRef.put(file);
-                const downloadURL = await snapshot.ref.getDownloadURL();
+                const snapshot = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
                 
-                await db.collection("posts").add({
+                await addDoc(collection(db, "posts"), {
                     imageUrl: downloadURL,
                     description: description,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    timestamp: serverTimestamp()
                 });
 
                 console.log('File uploaded and post created');
@@ -65,13 +57,16 @@
         async function displayPosts() {
             const postsContainer = document.getElementById('postsContainer');
             postsContainer.innerHTML = '';
-            const querySnapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
-            querySnapshot.forEach(doc => {
-                const data = doc.data();
-                postsContainer.innerHTML += `<div>
-                    <img src="${data.imageUrl}" alt="Uploaded Image" style="width: 100px; height: auto;" onclick="window.open('${data.imageUrl}', '_blank')">
-                    <p>${data.description}</p>
-                </div>`;
+            const q = query(collection(db, "posts"), orderBy("timestamp", "desc"));
+            const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                postsContainer.innerHTML = '';
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    postsContainer.innerHTML += `<div>
+                        <img src="${data.imageUrl}" alt="Uploaded Image" style="width: 100px; height: auto;" onclick="window.open('${data.imageUrl}', '_blank')">
+                        <p>${data.description}</p>
+                    </div>`;
+                });
             });
         }
 
