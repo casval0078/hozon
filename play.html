@@ -5,50 +5,36 @@
     <title>Video Player</title>
     <style>
         body {
-            background-color: #C5EBE5; /* 背景色の指定 */
-            color: #AE0019; /* テキストの色を指定 */
-            font-family: Arial, sans-serif; /* フォントファミリーの指定 */
-            margin: 0; /* マージンを0に設定 */
+            background-color: #2c3e50; /* 背景色の指定 */
+            color: #ecf0f1; /* テキストの色を指定 */
+            display: flex; /* フレックスボックスを使用して中央揃え */
+            justify-content: center; /* 水平方向に中央揃え */
+            align-items: center; /* 垂直方向に中央揃え */
             height: 100vh; /* ビューポートの高さを100%に設定 */
+            margin: 0; /* マージンを0に設定 */
         }
-        h1 {
-            color: #AE0019; /* タイトルの文字色を指定 */
-            text-align: center; /* タイトルを中央揃え */
-            margin-top: 20px; /* 上部マージンを設定 */
-        }
-        ul {
-            list-style-type: none; /* リストのスタイルタイプを無しに設定 */
-            padding: 0; /* パディングを0に設定 */
-            text-align: center; /* リストを中央揃え */
-        }
-        li a {
-            color: #AE0019; /* リンクの文字色を指定 */
-            text-decoration: none; /* テキストデコレーションを無しに設定 */
-            display: block; /* リンクをブロック要素に設定 */
-            padding: 10px; /* パディングを設定 */
-        }
-        li a:hover {
-            background-color: rgba(255, 255, 255, 0.2); /* ホバー時の背景色を設定 */
+        video {
+            max-width: 100%; /* 幅を親要素の100%以内に設定 */
+            max-height: 100%; /* 高さを親要素の100%以内に設定 */
         }
     </style>
 </head>
 <body>
-    <h1>Video Player</h1>
-    <video id="videoPlayer" controls autoplay>
-        Video loading failed...
+    <video controls autoplay>
+        <source id="videoSource" src="" type="video/mp4">
+        お使いのブラウザは動画タグをサポートしていません。
     </video>
 
     <script>
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const mediaUrl = urlParams.get('mediaUrl');
-            if (mediaUrl) {
-                const videoPlayer = document.getElementById('videoPlayer');
-                videoPlayer.src = decodeURIComponent(mediaUrl);
-            } else {
-                console.error('No video URL specified.');
-            }
-        };
+        // URLパラメータからメディアURLを取得
+        const urlParams = new URLSearchParams(window.location.search);
+        const mediaUrl = urlParams.get('mediaUrl');
+
+        // 動画ソースを設定
+        const videoSource = document.getElementById('videoSource');
+        if (mediaUrl) {
+            videoSource.src = decodeURIComponent(mediaUrl);
+        }
     </script>
 </body>
 </html>
