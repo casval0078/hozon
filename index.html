@@ -53,21 +53,27 @@
         }
 
         async function displayPosts() {
-            const postsContainer = document.getElementById('postsContainer');
-            postsContainer.innerHTML = '';
-            const postsQuery = query(collection(db, "posts"), orderBy("timestamp", "desc"));
-            const querySnapshot = await getDocs(postsQuery);
-            
-            querySnapshot.forEach(doc => {
-                const post = doc.data();
-                postsContainer.innerHTML += `<div>
-                    <img src="${post.imageUrl}" alt="Uploaded Image" style="width: 100px; height: auto;" onclick="window.open('${post.imageUrl}', '_blank')">
-                    <p>${post.name}: ${post.description}</p>
-                    <input type="text" placeholder="Delete key" id="deleteKey-${doc.id}">
-                    <button onclick="deletePost('${doc.id}')">Delete</button>
-                </div>`;
-            });
-        }
+    const postsContainer = document.getElementById('postsContainer');
+    postsContainer.innerHTML = '';
+    const postsQuery = query(collection(db, "posts"), orderBy("timestamp", "desc"));
+    const querySnapshot = await getDocs(postsQuery);
+
+    querySnapshot.forEach(doc => {
+        const post = doc.data();
+        const postElement = document.createElement('div');
+        postElement.innerHTML = `
+            <img src="${post.imageUrl}" alt="Uploaded Image" style="width: 100px; height: auto;">
+            <p>${post.name}: ${post.description}</p>
+            <input type="text" placeholder="Delete key" id="deleteKey-${doc.id}">
+            <button id="deleteButton-${doc.id}">Delete</button>
+        `;
+        postElement.querySelector('img').onclick = () => window.open(post.imageUrl, '_blank');
+        const deleteButton = postElement.querySelector(`#deleteButton-${doc.id}`);
+        deleteButton.addEventListener('click', () => deletePost(doc.id));
+        postsContainer.appendChild(postElement);
+    });
+}
+
 
         async function deletePost(postId) {
         const deleteKeyInput = document.getElementById('deleteKey-' + postId);
