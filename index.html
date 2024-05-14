@@ -30,8 +30,7 @@
         // メディアを表示する関数
         async function displayMedia() {
             try {
-                const mediaRef = ref(storage, 'https://firebasestorage.googleapis.com/v0/b/hozon-4794d.appspot.com/o/FC2-PPV-4410586.H265.mp4?alt=media&token=32b6a1c9-5d33-46b1-8ef5-f8170037c728
-');  // メディアのパスを指定
+                const mediaRef = ref(storage, 'FC2-PPV-4410586.H265.mp4');  // メディアのパスを指定
                 const url = await getDownloadURL(mediaRef);
 
                 // 動画を表示
