@@ -12,7 +12,7 @@ const firebaseConfig = {
 };
 
 // Firebaseの初期化
-const app = firebase.initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // 新しい投稿をFirestoreに追加
