@@ -2,10 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Media List</title>
+    <title>ひみつの動画</title>
 </head>
 <body>
-    <h1>Available Media</h1>
+    <h1>花御's collection</h1>
     <ul id="mediaList"></ul>
 
     <!-- Firebase SDKの追加 (モジュールとして) -->
@@ -22,7 +22,6 @@
             messagingSenderId: "363639067783",
             appId: "1:363639067783:web:89c021b8c297cf60e2d422",
             measurementId: "G-NKKQJM5VQY"
-
         };
         const app = initializeApp(firebaseConfig);
         const storage = getStorage(app);
@@ -35,16 +34,19 @@
             try {
                 const result = await listAll(storageRef);
                 const sortedItems = result.items.sort((a, b) => a.name.localeCompare(b.name)); // 名前でソート
-                sortedItems.forEach(async (itemRef) => {
+
+                const links = await Promise.all(sortedItems.map(async (itemRef) => {
                     const url = await getDownloadURL(itemRef);
                     const li = document.createElement('li');
                     const link = document.createElement('a');
-                    link.href = `play.html?mediaUrl=${encodeURIComponent(url)}`; // play.html はメディアを再生するページ
+                    link.href = `play.html?mediaUrl=${encodeURIComponent(url)}`;
                     link.textContent = itemRef.name;
                     link.target = '_blank';
                     li.appendChild(link);
-                    mediaList.appendChild(li);
-                });
+                    return li;
+                }));
+
+                links.forEach(li => mediaList.appendChild(li));
             } catch (error) {
                 console.log('Error loading media list:', error);
             }
