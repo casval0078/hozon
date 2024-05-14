@@ -1,4 +1,6 @@
 // scripts.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // Firebaseの設定
 const firebaseConfig = {
@@ -12,29 +14,31 @@ const firebaseConfig = {
 };
 
 // Firebaseの初期化
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 // 新しい投稿をFirestoreに追加
-document.getElementById('post-form').addEventListener('submit', (e) => {
+document.getElementById('post-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const title = document.getElementById('post-title').value;
     const content = document.getElementById('post-content').value;
 
-    db.collection('posts').add({
-        title: title,
-        content: content,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(() => {
+    try {
+        await addDoc(collection(db, 'posts'), {
+            title: title,
+            content: content,
+            timestamp: serverTimestamp()
+        });
         document.getElementById('post-form').reset();
-    }).catch((error) => {
+    } catch (error) {
         console.error("Error adding document: ", error);
-    });
+    }
 });
 
 // Firestoreから投稿を取得して表示
-db.collection('posts').orderBy('timestamp', 'desc').onSnapshot((snapshot) => {
+const q = query(collection(db, 'posts'), orderBy('timestamp', 'desc'));
+onSnapshot(q, (snapshot) => {
     const postsContainer = document.getElementById('posts');
     postsContainer.innerHTML = '';
     snapshot.forEach((doc) => {
