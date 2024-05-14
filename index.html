@@ -30,7 +30,7 @@
         // メディアリストを取得して表示
         async function loadMediaList() {
             const mediaList = document.getElementById('mediaList');
-            const storageRef = ref(storage, 'media/'); // 'media/' はメディアが保存されているフォルダのパス
+            const storageRef = ref(storage); 
 
             try {
                 const result = await listAll(storageRef);
