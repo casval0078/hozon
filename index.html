@@ -10,11 +10,12 @@
     <div id="mediaContainer"></div>
 
     <!-- Firebase SDKの追加 -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js"></script>
-    <script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getStorage, ref, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
         // Firebase設定の初期化
-        var firebaseConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
             authDomain: "hozon-4794d.firebaseapp.com",
             projectId: "hozon-4794d",
@@ -23,29 +24,24 @@
             appId: "1:363639067783:web:89c021b8c297cf60e2d422",
             measurementId: "G-NKKQJM5VQY"
         };
-        firebase.initializeApp(firebaseConfig);
-        var storage = firebase.storage();
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
 
         // メディアを表示する関数
-        function displayMedia() {
-            var storageRef = storage.ref();
-            var mediaRef = storageRef.child('your-media-path.mp4');  // メディアのパスを指定
+        async function displayMedia() {
+            try {
+                const mediaRef = ref(storage, 'your-media-path.mp4');  // メディアのパスを指定
+                const url = await getDownloadURL(mediaRef);
 
-            mediaRef.getDownloadURL().then(function(url) {
                 // 動画を表示
-                var video = document.createElement('video');
+                const video = document.createElement('video');
                 video.src = url;
                 video.controls = true;
                 video.autoplay = true; // 自動再生を望む場合
                 document.getElementById('mediaContainer').appendChild(video);
-
-                // 画像を表示
-                var image = document.createElement('img');
-                image.src = url;  // 画像のURLを指定
-                document.getElementById('mediaContainer').appendChild(image);
-            }).catch(function(error) {
+            } catch (error) {
                 console.error("Error loading media: ", error);
-            });
+            }
         }
 
         window.onload = displayMedia;
