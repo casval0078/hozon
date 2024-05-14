@@ -53,11 +53,13 @@
         }
 
         async function displayPosts() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    loadingIndicator.style.display = 'block';  // ローディング表示開始
     const postsContainer = document.getElementById('postsContainer');
     postsContainer.innerHTML = '';
     const postsQuery = query(collection(db, "posts"), orderBy("timestamp", "desc"));
     const querySnapshot = await getDocs(postsQuery);
-
+    
     querySnapshot.forEach(doc => {
         const post = doc.data();
         const postElement = document.createElement('div');
@@ -72,7 +74,9 @@
         deleteButton.addEventListener('click', () => deletePost(doc.id));
         postsContainer.appendChild(postElement);
     });
+    loadingIndicator.style.display = 'none';  // ローディング表示終了
 }
+
 
 
         async function deletePost(postId) {
@@ -100,6 +104,6 @@
     <input type="text" id="deleteKeyInput" placeholder="Enter a delete key">
     <button id="uploadButton">Upload</button>
     <div id="postsContainer"></div>
+    <div id="loadingIndicator" style="display: none;">Loading...</div>
 </body>
-</html>
 </html>
