@@ -1,3 +1,37 @@
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
+    authDomain: "hozon-4794d.firebaseapp.com",
+    projectId: "hozon-4794d",
+    storageBucket: "hozon-4794d.appspot.com",
+    messagingSenderId: "363639067783",
+    appId: "1:363639067783:web:89c021b8c297cf60e2d422",
+    measurementId: "G-NKKQJM5VQY"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+
 <!-- index.html内 -->
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js">　</script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js">　</script>
+<input type="file" id="fileInput" />
+<button onclick="uploadFile()">Upload</button>
+<script>
+  function uploadFile() {
+    const file = document.getElementById('fileInput').files[0];
+    const storageRef = firebase.storage().ref();
+    const fileRef = storageRef.child(file.name);
+    fileRef.put(file).then(() => {
+      alert('File uploaded successfully!');
+    });
+  }
+</script>
