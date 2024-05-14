@@ -8,37 +8,38 @@
     <h1>Available Media</h1>
     <ul id="mediaList"></ul>
 
-    <!-- Firebase SDKの追加 -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js"></script>
-    <script>
+    <!-- Firebase SDKの追加 (モジュールとして) -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getStorage, ref, listAll, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
         // Firebase設定の初期化
         const firebaseConfig = {
             // Your Firebase Config
         };
-        firebase.initializeApp(firebaseConfig);
-        const storage = firebase.storage();
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
 
         // メディアリストを取得して表示
-        function loadMediaList() {
+        async function loadMediaList() {
             const mediaList = document.getElementById('mediaList');
-            const storageRef = storage.ref('media/'); // 'media/' はメディアが保存されているフォルダのパス
+            const storageRef = ref(storage, 'media/'); // 'media/' はメディアが保存されているフォルダのパス
 
-            storageRef.listAll().then((result) => {
-                result.items.forEach((itemRef) => {
-                    itemRef.getDownloadURL().then((url) => {
-                        const li = document.createElement('li');
-                        const link = document.createElement('a');
-                        link.href = `play.html?mediaUrl=${encodeURIComponent(url)}`; // play.html はメディアを再生するページ
-                        link.textContent = itemRef.name;
-                        link.target = '_blank';
-                        li.appendChild(link);
-                        mediaList.appendChild(li);
-                    });
+            try {
+                const result = await listAll(storageRef);
+                result.items.forEach(async (itemRef) => {
+                    const url = await getDownloadURL(itemRef);
+                    const li = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = `play.html?mediaUrl=${encodeURIComponent(url)}`; // play.html はメディアを再生するページ
+                    link.textContent = itemRef.name;
+                    link.target = '_blank';
+                    li.appendChild(link);
+                    mediaList.appendChild(li);
                 });
-            }).catch((error) => {
+            } catch (error) {
                 console.log('Error loading media list:', error);
-            });
+            }
         }
 
         window.onload = loadMediaList;
