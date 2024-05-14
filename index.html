@@ -34,7 +34,8 @@
 
             try {
                 const result = await listAll(storageRef);
-                result.items.forEach(async (itemRef) => {
+                const sortedItems = result.items.sort((a, b) => a.name.localeCompare(b.name)); // 名前でソート
+                sortedItems.forEach(async (itemRef) => {
                     const url = await getDownloadURL(itemRef);
                     const li = document.createElement('li');
                     const link = document.createElement('a');
