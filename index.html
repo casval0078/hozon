@@ -2,49 +2,46 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Viewer</title>
+    <title>Media List</title>
 </head>
 <body>
-    <h1>Stored Media</h1>
-    <div id="mediaContainer"></div>
+    <h1>Available Media</h1>
+    <ul id="mediaList"></ul>
 
     <!-- Firebase SDKの追加 -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getStorage, ref, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
-
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js"></script>
+    <script>
         // Firebase設定の初期化
         const firebaseConfig = {
-            apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
-            authDomain: "hozon-4794d.firebaseapp.com",
-            projectId: "hozon-4794d",
-            storageBucket: "hozon-4794d.appspot.com",
-            messagingSenderId: "363639067783",
-            appId: "1:363639067783:web:89c021b8c297cf60e2d422",
-            measurementId: "G-NKKQJM5VQY"
+            // Your Firebase Config
         };
-        const app = initializeApp(firebaseConfig);
-        const storage = getStorage(app);
+        firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
 
-        // メディアを表示する関数
-        async function displayMedia() {
-            try {
-                const mediaRef = ref(storage, 'FC2-PPV-4410586.H265.mp4');  // メディアのパスを指定
-                const url = await getDownloadURL(mediaRef);
+        // メディアリストを取得して表示
+        function loadMediaList() {
+            const mediaList = document.getElementById('mediaList');
+            const storageRef = storage.ref('media/'); // 'media/' はメディアが保存されているフォルダのパス
 
-                // 動画を表示
-                const video = document.createElement('video');
-                video.src = url;
-                video.controls = true;
-                video.autoplay = true; // 自動再生を望む場合
-                document.getElementById('mediaContainer').appendChild(video);
-            } catch (error) {
-                console.error("Error loading media: ", error);
-            }
+            storageRef.listAll().then((result) => {
+                result.items.forEach((itemRef) => {
+                    itemRef.getDownloadURL().then((url) => {
+                        const li = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.href = `play.html?mediaUrl=${encodeURIComponent(url)}`; // play.html はメディアを再生するページ
+                        link.textContent = itemRef.name;
+                        link.target = '_blank';
+                        li.appendChild(link);
+                        mediaList.appendChild(li);
+                    });
+                });
+            }).catch((error) => {
+                console.log('Error loading media list:', error);
+            });
         }
 
-        window.onload = displayMedia;
+        window.onload = loadMediaList;
     </script>
 </body>
 </html>
