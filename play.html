@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Play Media</title>
+</head>
+<body>
+    <video controls autoplay>
+        <source id="videoSource" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <script>
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const mediaUrl = urlParams.get('mediaUrl');
+            document.getElementById('videoSource').src = decodeURIComponent(mediaUrl);
+        };
+    </script>
+</body>
+</html>
