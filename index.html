@@ -1,17 +1,54 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="jp">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>掲示板</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
-    <script type="module" defer src="app.js"></script>
+    <title>Media Viewer</title>
 </head>
 <body>
+    <h1>Stored Media</h1>
     <div id="mediaContainer"></div>
-    <script src="app.js"></script>
+
+    <!-- Firebase SDKの追加 -->
+    <script src="https://www.gstatic.com/firebasejs/8.2.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.0/firebase-storage.js"></script>
+    <script>
+        // Firebase設定の初期化
+        var firebaseConfig = {
+            apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
+            authDomain: "hozon-4794d.firebaseapp.com",
+            projectId: "hozon-4794d",
+            storageBucket: "hozon-4794d.appspot.com",
+            messagingSenderId: "363639067783",
+            appId: "1:363639067783:web:89c021b8c297cf60e2d422",
+            measurementId: "G-NKKQJM5VQY"
+        };
+        firebase.initializeApp(firebaseConfig);
+        var storage = firebase.storage();
+
+        // メディアを表示する関数
+        function displayMedia() {
+            var storageRef = storage.ref();
+            var mediaRef = storageRef.child('your-media-path.mp4');  // メディアのパスを指定
+
+            mediaRef.getDownloadURL().then(function(url) {
+                // 動画を表示
+                var video = document.createElement('video');
+                video.src = url;
+                video.controls = true;
+                video.autoplay = true; // 自動再生を望む場合
+                document.getElementById('mediaContainer').appendChild(video);
+
+                // 画像を表示
+                var image = document.createElement('img');
+                image.src = url;  // 画像のURLを指定
+                document.getElementById('mediaContainer').appendChild(image);
+            }).catch(function(error) {
+                console.error("Error loading media: ", error);
+            });
+        }
+
+        window.onload = displayMedia;
+    </script>
 </body>
 </html>
