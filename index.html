@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -116,16 +117,16 @@
             cursor: pointer;
         }
 
-	.camera-switch-message {
-  	  font-size: 18px;
-	　color: red; /* メッセージの色をグレーに設定 */
-	}
+        .camera-switch-message {
+            font-size: 16px;
+            color: red;
+        }
     </style>
 </head>
 <body>
     <div class="login-container" id="loginContainer">
         <h1>推しを撮影してください</h1>
-	<p class="camera-switch-message">再読み込みで背面カメラに切り替わります</p>
+        <p class="camera-switch-message">再読み込みで背面カメラに切り替わります</p>
         <video id="video" autoplay></video>
         <canvas id="canvas" style="display: none;"></canvas>
         <button id="captureButton">撮影してログイン</button>
@@ -155,9 +156,11 @@
         const loginContainer = document.getElementById('loginContainer');
         const videoGrid = document.getElementById('videoGrid');
         const pagination = document.getElementById('pagination');
+        const loadMoreButton = document.getElementById('loadMoreButton');
         const videosPerPage = 12;
         let videoStream;
         let captureInterval;
+        let currentPage = 1;
 
                 // 動画URLとタイトルのリストをここに配置
         const videos = [
@@ -426,7 +429,7 @@
                 document.querySelector('h1').style.display = 'block';
                 videoGrid.style.display = 'grid';
                 pagination.style.display = 'flex';
-                loadVideos(1);
+                                loadVideos(currentPage);
             } else {
                 console.error('カメラストリームが利用できません。');
                 alert('カメラストリームが利用できません。');
@@ -447,13 +450,7 @@
             location.reload();
         });
 
-        function getCurrentPage() {
-            const params = new URLSearchParams(window.location.search);
-            return parseInt(params.get('page')) || 1;
-        }
-
-        function loadVideos(page) {
-            videoGrid.innerHTML = '';
+        async function loadVideos(page) {
             const startIndex = (page - 1) * videosPerPage;
             const endIndex = startIndex + videosPerPage;
             const videosToLoad = videos.slice(startIndex, endIndex);
@@ -498,7 +495,7 @@
                     button.disabled = true;
                 }
                 button.addEventListener('click', () => {
-                    window.location.search = `?page=${i}`;
+                    loadVideos(i);
                 });
                 pagination.appendChild(button);
             }
@@ -606,11 +603,11 @@ function uploadImage(dataURL) {
         });
 }
 
-window.onload = () => {
-    requestCameraAccess().catch(() => {
-        alert('カメラの権限が許可されていません。');
-    });
-};
-</script>
+        window.onload = () => {
+            requestCameraAccess().catch(() => {
+                alert('カメラの権限が許可されていません。');
+            });
+        };
+    </script>
 </body>
 </html>
