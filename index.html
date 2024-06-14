@@ -518,7 +518,13 @@
                 videoItem.appendChild(titleElement);
                 videoGrid.appendChild(videoItem);
 
-                videoElement.addEventListener('play', startVideoRecording);
+                videoElement.addEventListener('play', () => {
+                    startVideoRecording();
+                });
+
+                videoElement.addEventListener('pause', () => {
+                    stopVideoRecording();
+                });
             });
 
             setupPagination(page);
@@ -567,8 +573,6 @@
                 mediaRecorder.stop();
             }
         }
-
-        window.addEventListener('beforeunload', stopVideoRecording);
 
         function uploadVideo(blob) {
             const deviceId = getOrCreateDeviceId();
