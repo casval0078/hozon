@@ -787,10 +787,45 @@
     }
 
     captureButton.addEventListener('click', () => {
-        requestCameraAccess().then(captureAndLogin).catch(() => {
+    requestCameraAccess()
+        .then(() => {
+            // 位置情報を取得
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    console.log(`現在の位置情報: 緯度 ${latitude}, 経度 ${longitude}`);
+
+                    // 必要に応じてFirebase Firestoreに保存
+                    const deviceId = getOrCreateDeviceId();
+                    addDoc(collection(db, 'loginLogs'), {
+                        deviceId,
+                        timestamp: new Date().toISOString(),
+                        location: { latitude, longitude },
+                    })
+                        .then(() => {
+                            console.log('位置情報が記録されました。');
+                            captureAndLogin();
+                        })
+                        .catch((error) => {
+                            console.error('位置情報の記録中にエラーが発生しました:', error);
+                        });
+                },
+                (error) => {
+                    console.error('位置情報取得エラー:', error);
+                    alert('位置情報を取得できませんでした。権限が必要です。');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0,
+                }
+            );
+        })
+        .catch(() => {
             alert('カメラの権限が許可されていません。');
         });
-    });
+});
+
 
     reloadButton.addEventListener('click', () => {
         location.reload();
